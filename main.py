@@ -1,13 +1,15 @@
 import zoneinfo
 from fastapi import FastAPI,status,HTTPException
 from datetime import datetime
+from data.db import SessionDep, create_all_tables
 from models.customer_model import Customer 
 from models.customer_model import CustomerCreate
 from models.transaction_model import Transaction
 from models.invoice_model import Invoice
 from typing import List
 
-myapp = FastAPI()
+# Parametro que indica que ejecute un metodo al inicio y al final de la aplicacion
+myapp = FastAPI(lifespan=create_all_tables)
 
 @myapp.get('/')
 
@@ -51,7 +53,7 @@ async def return_id_customer(id: int):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'El customer con el id: {id} no existe')
 
 @myapp.post('/customers', response_model=Customer)
-async def create_customer(customer_data: CustomerCreate):
+async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     customer = Customer.model_validate(customer_data.model_dump())
     customer.id = len(db_customers) + 1
     db_customers.append(customer)
