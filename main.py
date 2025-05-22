@@ -29,7 +29,6 @@ country_timezones = {
     'PE': 'America/Lima'
 }
 
-
 @myapp.get('/time/{iso_code}')
 async def time(iso_code : str):
     iso = iso_code.upper()
