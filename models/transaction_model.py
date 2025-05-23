@@ -1,8 +1,9 @@
 from pydantic import BaseModel
-from 
+from typing import Optional
+from sqlmodel import SQLModel,Field
 
-class Transaction(BaseModel):
-    id: int
-    amount: float
+class Transaction(SQLModel):
+    id: Optional[int] 
+    amount: float 
     description: str
     
