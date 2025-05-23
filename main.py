@@ -2,8 +2,7 @@ import zoneinfo
 from fastapi import FastAPI,status,HTTPException
 from datetime import datetime
 from data.db import SessionDep, create_all_tables
-from models.customer_model import Customer 
-from models.customer_model import CustomerCreate
+from models.customer_model import Customer,CustomerCreate,CustomerUpdate
 from models.transaction_model import Transaction
 from models.invoice_model import Invoice
 from typing import List
@@ -49,7 +48,8 @@ async def return_all_customers(session: SessionDep):
 
 @myapp.get('/customers/{id}',response_model=Customer)
 async def return_id_customer(id: int,session: SessionDep):
-    customer = session.exec(select(Customer).where(id == Customer.id)).first()
+    # customer = session.exec(select(Customer).where(id == Customer.id)).first()
+    customer = session.get(Customer,id)
     if customer == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'El customer con el id: {id} no existe')
     return  customer
@@ -60,7 +60,6 @@ async def return_id_customer(id: int,session: SessionDep):
     #     if (c.id == id):
     #         return c
     
-
 @myapp.post('/customers', response_model=Customer)
 async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     customer = Customer.model_validate(customer_data.model_dump())
@@ -72,6 +71,51 @@ async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     # db_customers.append(customer)
     return customer
 
+@myapp.delete('/customers/{id}')
+async def delete_customer(id: int, session: SessionDep):
+    customer = session.get(Customer, id)
+    if customer == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"el customer con el id : {id} no se encuentra en la base de datos")
+    session.delete(customer)
+    session.commit()
+    return {"message":f"El customer con el id: {id} ha sido eliminado con exito"}
+
+@myapp.put('/customers/{id}', response_model=CustomerCreate)
+async def put_customer(id: int,body: CustomerUpdate, session: SessionDep):
+    
+    customer_db = session.get(Customer, id)
+    
+    if customer_db == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"El customer con el id: {id} no se encuentra en la base de datos")
+    
+    update_data = body.model_dump()
+
+    # Version nueva
+    customer_db.sqlmodel_update(update_data)
+    # Version vieja
+    # for key,value in update_data.items():
+    #     setattr(customer_db, key,value)
+
+    session.add(customer_db)
+    session.commit()
+    session.refresh(customer_db)
+
+    return customer_db
+
+@myapp.patch('/Customers/{id}', response_model=Customer, status_code=status.HTTP_201_CREATED)
+def patch_customer(id: int , body: CustomerUpdate, session: SessionDep):
+
+    customer_db = session.get(Customer,id)
+    if customer_db == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"El customer con el id: {id} no se encuentra en la BD")
+    
+    # Obtener solo los campos que envió el cliente
+    customer_data = body.model_dump(exclude_unset=True)
+    customer_db.sqlmodel_update(customer_data)
+    session.add(customer_db)
+    session.commit()
+    session.refresh(customer_db)
+    return customer_db
 
 @myapp.post('/transactions')
 async def create_transaction(transaction: Transaction):
