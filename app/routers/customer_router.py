@@ -1,52 +1,18 @@
-import zoneinfo
-from fastapi import FastAPI,status,HTTPException
-from datetime import datetime
-from data.db import SessionDep, create_all_tables
-from models.customer_model import Customer,CustomerCreate,CustomerUpdate
-from models.transaction_model import Transaction
-from models.invoice_model import Invoice
 from typing import List
+from fastapi import APIRouter,HTTPException,status
+from models.customer_model import Customer,CustomerCreate,CustomerUpdate
+from data.db import SessionDep
 from sqlmodel import select
 
-# Parametro que indica que ejecute un metodo al inicio y al final de la aplicacion
-myapp = FastAPI(lifespan=create_all_tables)
+router = APIRouter(tags=['customers'])
 
-@myapp.get('/')
-
-async def myfirst():
-    return {'message': 'Hello world'}
-
-@myapp.get('/time')
-async def time():
-    return {"time":datetime.now()}
-
-country_timezones = {
-    'CO': 'America/Bogota',
-    'MX': 'America/Mexico_City',
-    'AR': 'America/Argentina/Buenos_Aires',
-    'BR': 'America/Sao_Paulo',
-    'PE': 'America/Lima'
-}
-
-@myapp.get('/time/{iso_code}')
-async def time(iso_code : str):
-    iso = iso_code.upper()
-    timezone = country_timezones.get(iso)
-    if( timezone == None):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lo sentimos pero el {iso} no existe")
-
-    tz = zoneinfo.ZoneInfo(timezone)
-    return {"time": datetime.now(tz)}
-
-db_customers:List[Customer] = []
-
-@myapp.get('/customers', response_model=List[Customer])
+@router.get('/', response_model=List[Customer])
 async def return_all_customers(session: SessionDep):
     # Ejecuta transacciones SQL
     return session.exec(select(Customer)).all() #devuelve una lista
      
 
-@myapp.get('/customers/{id}',response_model=Customer)
+@router.get('/{id}',response_model=Customer)
 async def return_id_customer(id: int,session: SessionDep):
     # customer = session.exec(select(Customer).where(id == Customer.id)).first()
     customer = session.get(Customer,id)
@@ -60,7 +26,7 @@ async def return_id_customer(id: int,session: SessionDep):
     #     if (c.id == id):
     #         return c
     
-@myapp.post('/customers', response_model=Customer)
+@router.post('/', response_model=Customer)
 async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     customer = Customer.model_validate(customer_data.model_dump())
     # agregar, confirmar y refrescar la variable por que necesitamos que el customer genere el id
@@ -71,7 +37,7 @@ async def create_customer(customer_data: CustomerCreate, session: SessionDep):
     # db_customers.append(customer)
     return customer
 
-@myapp.delete('/customers/{id}')
+@router.delete('/{id}')
 async def delete_customer(id: int, session: SessionDep):
     customer = session.get(Customer, id)
     if customer == None:
@@ -80,7 +46,7 @@ async def delete_customer(id: int, session: SessionDep):
     session.commit()
     return {"message":f"El customer con el id: {id} ha sido eliminado con exito"}
 
-@myapp.put('/customers/{id}', response_model=CustomerCreate)
+@router.put('/{id}', response_model=CustomerCreate)
 async def put_customer(id: int,body: CustomerUpdate, session: SessionDep):
     
     customer_db = session.get(Customer, id)
@@ -102,7 +68,7 @@ async def put_customer(id: int,body: CustomerUpdate, session: SessionDep):
 
     return customer_db
 
-@myapp.patch('/Customers/{id}', response_model=Customer, status_code=status.HTTP_201_CREATED)
+@router.patch('/{id}', response_model=Customer, status_code=status.HTTP_201_CREATED)
 def patch_customer(id: int , body: CustomerUpdate, session: SessionDep):
 
     customer_db = session.get(Customer,id)
@@ -116,11 +82,3 @@ def patch_customer(id: int , body: CustomerUpdate, session: SessionDep):
     session.commit()
     session.refresh(customer_db)
     return customer_db
-
-@myapp.post('/transactions')
-async def create_transaction(transaction: Transaction):
-    return transaction
-
-@myapp.post('/invoices')
-async def create_invoice(invoice: Invoice):
-    return invoice
